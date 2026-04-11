@@ -1,0 +1,103 @@
+
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hệ thống Sắp Xếp Thời Gian Phun Khí Dung - BVĐK Khu Vực Chợ Lách</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap');
+        
+        body { 
+            font-family: 'Public Sans', sans-serif;
+            letter-spacing: -0.015em;
+        }
+
+        .font-mono {
+            font-family: 'JetBrains Mono', monospace !important;
+        }
+
+        #print-header, #print-footer { display: none; }
+
+        /* Tối ưu khi bấm IN của trình duyệt */
+        @media print {
+            @page {
+                size: A4 portrait;
+                margin: 0mm;
+            }
+            body { background: white !important; padding: 0 !important; }
+            .no-print { display: none !important; }
+            #print-header { display: block !important; }
+            #print-footer { display: block !important; }
+            .pdf-container { border: none !important; border-radius: 0 !important; box-shadow: none !important; width: 100% !important; margin: 0 !important; padding: 0 !important; }
+            table { width: 100% !important; border: 0.5pt solid #000 !important; }
+            th, td { border: 0.5pt solid #000 !important; padding: 10px 6px !important; color: #000 !important; font-size: 8pt !important; }
+            th { background-color: #f8fafc !important; font-weight: 800 !important; }
+            tr { page-break-inside: avoid; }
+        }
+
+        /* Chế độ xuất PDF qua html2pdf */
+        .pdf-export-mode {
+            width: 210mm !important; /* Chuẩn A4 */
+            margin: 0 auto !important;
+            padding: 0 !important;
+            border: none !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            background: white !important;
+        }
+
+        .pdf-export-mode table {
+            border: 1.2pt solid #000 !important;
+            border-collapse: collapse !important;
+            width: 100% !important;
+        }
+
+        .pdf-export-mode th, .pdf-export-mode td {
+            border: 1.2pt solid #000 !important;
+            color: #000 !important;
+            padding: 12px 8px !important;
+            font-size: 8.5pt !important;
+        }
+        
+        .pdf-export-mode th {
+            font-weight: 900 !important;
+            text-transform: uppercase !important;
+            background-color: #f1f5f9 !important;
+        }
+
+        .pdf-export-mode #print-header {
+            display: block !important;
+        }
+        
+        .pdf-export-mode #print-footer {
+            display: block !important;
+        }
+
+        /* Custom Table Highlights */
+        .pdf-export-mode .bg-blue-50\/30 {
+            background-color: transparent !important;
+            font-weight: 900 !important;
+        }
+        .pdf-export-mode .bg-emerald-50\/30 {
+            background-color: transparent !important;
+            font-weight: 900 !important;
+        }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+<body class="antialiased">
+    <div id="root"></div>
+<script type="module" src="/index.tsx"></script>
+</body>
+</html>
