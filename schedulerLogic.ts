@@ -1,18 +1,8 @@
-
 import { 
   PatientInput, 
   ScheduleEntry, 
   SchedulingConfig 
 } from './types';
-import { 
-  OFFICE_START, 
-  OFFICE_END, 
-  EXECUTION_OFFSET, 
-  DURATION, 
-  MAX_DELAY, 
-  DOSE3_EARLY_LIMIT,
-  MACHINES
-} from './constants';
 
 const timeToMinutes = (time: string): number => {
   const [h, m] = time.split(':').map(Number);
@@ -25,157 +15,157 @@ const minutesToTime = (minutes: number): string => {
   return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
 };
 
-const isOfficeHours = (minutes: number): boolean => {
-  const normalized = minutes % 1440;
-  return normalized >= OFFICE_START && normalized <= OFFICE_END;
+const NURSE_MACHINE_MAP: Record<string, string> = {
+  'ĐD1': '032',
+  'ĐD2': '121',
+  'ĐD3': '368'
 };
+
+const DURATION = 20;
+const GAP = 1;
 
 export const generateSchedule = (
   patients: PatientInput[],
   config: SchedulingConfig
 ): ScheduleEntry[] => {
-  const pkdCount = patients.length;
-  // Đánh dấu trạng thái bệnh đông (>= 30 bệnh)
-  const isHighWorkload = pkdCount >= 30;
+  const uniquePatientNames = Array.from(new Set(patients.map(p => p.name)));
+  
+  const activeNurseTags = config.totalInpatients >= 30 
+    ? ['ĐD1', 'ĐD2', 'ĐD3']
+    : ['ĐD1', 'ĐD2'];
 
-  const allSlots: { 
-    patientName: string; 
-    doseNumber: number; 
-    orderTime: string; 
-    targetMinutes: number; 
-    isDose3: boolean;
-    frequency: number;
-  }[] = [];
+  const nurseNames: Record<string, string> = {
+    'ĐD1': config.nurse1 || 'Điều dưỡng 1',
+    'ĐD2': config.nurse2 || 'Điều dưỡng 2',
+    'ĐD3': config.nurseC || 'Điều dưỡng 3'
+  };
 
-  // 1. Tạo các khung giờ lý thuyết dựa trên y lệnh + 8 phút
-  patients.forEach(p => {
-    const firstOrderMinutes = timeToMinutes(p.firstOrderTime);
-    const interval = p.frequency === 2 ? 12 * 60 : 8 * 60;
+  // Preparation: Group by patient and find initial order time
+  const patientData = uniquePatientNames.map(name => {
+    const p = patients.find(p => p.name === name)!;
+    return {
+      name: p.name,
+      firstOrderTime: timeToMinutes(p.firstOrderTime),
+      frequency: p.frequency
+    };
+  }).sort((a, b) => a.firstOrderTime - b.firstOrderTime);
 
-    for (let i = 0; i < p.frequency; i++) {
-      // Giờ thực hiện = Giờ chỉ định + 8 phút
-      const targetExecutionMinutes = firstOrderMinutes + (i * interval) + EXECUTION_OFFSET;
+  const finalEntries: ScheduleEntry[] = [];
+  
+  // Track occupied time slots for each nurse: { start, end }[]
+  const nurseBusySlots: Record<string, { start: number, end: number }[]> = {};
+  activeNurseTags.forEach(tag => nurseBusySlots[tag] = []);
+
+  const isNurseFree = (tag: string, start: number, end: number) => {
+    return !nurseBusySlots[tag].some(slot => 
+      (start < slot.end + GAP && end > slot.start - GAP)
+    );
+  };
+
+  const addSlotToNurse = (tag: string, start: number, end: number) => {
+    nurseBusySlots[tag].push({ start, end });
+    nurseBusySlots[tag].sort((a, b) => a.start - b.start);
+  };
+
+  patientData.forEach(p => {
+    let bestNurse = '';
+    let bestSchedule: { start: number, end: number, orderTime: string }[] = [];
+    let earliestD1Start = Infinity;
+
+    // Try each active nurse
+    activeNurseTags.forEach(tag => {
+      let currentD1Start = p.firstOrderTime + 8;
       
-      allSlots.push({
-        patientName: p.name,
-        doseNumber: i + 1,
-        orderTime: p.firstOrderTime,
-        targetMinutes: targetExecutionMinutes,
-        isDose3: i === 2 && p.frequency === 3,
-        frequency: p.frequency
-      });
-    }
-  });
+      // Step through time to find a valid window for ALL doses
+      let foundValid = false;
+      let attemptD1 = currentD1Start;
+      
+      // Safety break to prevent infinite loop
+      while (!foundValid && attemptD1 < 2880) { 
+        const tempDoses: { start: number, end: number, orderTime: string }[] = [];
+        let possible = true;
 
-  // Sắp xếp theo thời gian thực hiện mục tiêu
-  allSlots.sort((a, b) => a.targetMinutes - b.targetMinutes);
-
-  const finalSchedule: ScheduleEntry[] = [];
-  const usage: Record<number, { nurses: string[]; machines: string[] }> = {};
-
-  const isResourceAvailable = (
-    start: number, 
-    nurse: string, 
-    machine: string
-  ): boolean => {
-    // Quy tắc: Tuyệt đối không trùng thời gian (20 phút theo dõi liên tục)
-    for (let t = start; t < start + DURATION; t++) {
-      const timeUsage = usage[t % 1440];
-      if (timeUsage) {
-        if (timeUsage.nurses.includes(nurse) || timeUsage.machines.includes(machine)) {
-          return false;
+        // Dose 1
+        let d1Start = attemptD1;
+        let d1End = d1Start + DURATION;
+        if (!isNurseFree(tag, d1Start, d1End)) {
+          possible = false;
+          // Move attemptD1 to next available spot for this nurse
+          const blockingSlot = nurseBusySlots[tag].find(s => d1Start < s.end + GAP && d1End > s.start - GAP);
+          attemptD1 = (blockingSlot?.end || d1Start) + GAP;
+          continue;
         }
-      }
-    }
-    return true;
-  };
+        tempDoses.push({ start: d1Start, end: d1End, orderTime: minutesToTime(p.firstOrderTime) });
 
-  const bookResources = (
-    start: number, 
-    nurse: string, 
-    machine: string
-  ) => {
-    for (let t = start; t < start + DURATION; t++) {
-      const min = t % 1440;
-      if (!usage[min]) usage[min] = { nurses: [], machines: [] };
-      usage[min].nurses.push(nurse);
-      usage[min].machines.push(machine);
-    }
-  };
+        // Dose 2
+        let d2Start, d2End;
+        if (p.frequency >= 2) {
+          const interval = 720; // Default 12h
+          const freq3Interval = 480; // 8h if 3 doses
+          const actualInterval = p.frequency === 3 ? freq3Interval : interval;
+          
+          d2Start = d1Start + actualInterval;
+          d2End = d2Start + DURATION;
+          
+          while (!isNurseFree(tag, d2Start, d2End) && d2Start < 2880) {
+            const blocking = nurseBusySlots[tag].find(s => d2Start < s.end + GAP && d2End > s.start - GAP);
+            d2Start = (blocking?.end || d2Start) + GAP;
+            d2End = d2Start + DURATION;
+          }
+          const order2 = p.firstOrderTime + (p.frequency === 3 ? 480 : 720);
+          tempDoses.push({ start: d2Start, end: d2End, orderTime: minutesToTime(order2) });
+        }
 
-  allSlots.forEach(slot => {
-    let bestStart = slot.targetMinutes;
-    let assignedNurse = "";
-    let assignedMachine = "";
-    let found = false;
+        // Dose 3
+        if (p.frequency === 3) {
+          let d3Start = tempDoses[1].start + 420; // 7h from D2
+          let d3End = d3Start + DURATION;
+          while (!isNurseFree(tag, d3Start, d3End) && d3Start < 2880) {
+            const blocking = nurseBusySlots[tag].find(s => d3Start < s.end + GAP && d3End > s.start - GAP);
+            d3Start = (blocking?.end || d3Start) + GAP;
+            d3End = d3Start + DURATION;
+          }
+          const order3 = p.firstOrderTime + 480 + 420;
+          tempDoses.push({ start: d3Start, end: d3End, orderTime: minutesToTime(order3) });
+        }
 
-    const searchStart = slot.isDose3 ? bestStart - DOSE3_EARLY_LIMIT : bestStart;
-    const searchEnd = bestStart + MAX_DELAY;
-
-    for (let t = searchStart; t <= searchEnd; t++) {
-      const office = isOfficeHours(t);
-      // Ngày hành chánh: Luôn cho phép 3 ĐD trong giờ hành chính (office)
-      // Thứ 7/CN: Chỉ cho phép 3 ĐD nếu số bệnh >= 30 VÀ trong giờ hành chính (office)
-      const canUseThree = office && (!config.isWeekend || pkdCount >= 30);
-      
-      const availableNurses = canUseThree 
-        ? [config.nurse1, config.nurse2, config.nurseC] 
-        : [config.nurse1, config.nurse2];
-        
-      const availableMachines = canUseThree
-        ? [...MACHINES.ALWAYS, ...MACHINES.OFFICE]
-        : [...MACHINES.ALWAYS];
-
-      for (const n of availableNurses) {
-        for (const m of availableMachines) {
-          if (isResourceAvailable(t, n, m)) {
-            bestStart = t;
-            assignedNurse = n;
-            assignedMachine = m;
-            found = true;
-            break;
+        if (possible) {
+          foundValid = true;
+          if (d1Start < earliestD1Start) {
+            earliestD1Start = d1Start;
+            bestNurse = tag;
+            bestSchedule = tempDoses;
           }
         }
-        if (found) break;
       }
-      if (found) break;
-    }
+    });
 
-    if (found) {
-      bookResources(bestStart, assignedNurse, assignedMachine);
-      finalSchedule.push({
-        stt: 0,
-        patientName: slot.patientName,
-        doseNumber: slot.doseNumber,
-        orderTime: slot.orderTime,
-        startTime: minutesToTime(bestStart),
-        endTime: minutesToTime(bestStart + DURATION),
-        nurseName: assignedNurse,
-        machineId: assignedMachine,
-        isOffHours: !isOfficeHours(bestStart),
-        notes: assignedNurse === config.nurseC 
-          ? (config.isWeekend ? "ĐD 3 (Bệnh đông - T7/CN)" : "ĐD 3 (Hành chính)") 
-          : "",
-        rawMinutes: bestStart
-      });
-    } else {
-      finalSchedule.push({
-        stt: 0,
-        patientName: slot.patientName,
-        doseNumber: slot.doseNumber,
-        orderTime: slot.orderTime,
-        startTime: minutesToTime(bestStart),
-        endTime: minutesToTime(bestStart + DURATION),
-        nurseName: "CHƯA PHÂN CÔNG",
-        machineId: "HẾT MÁY",
-        isOffHours: !isOfficeHours(bestStart),
-        notes: "Xung đột nguồn lực",
-        rawMinutes: bestStart
+    if (bestNurse) {
+      bestSchedule.forEach((dose, idx) => {
+        addSlotToNurse(bestNurse, dose.start, dose.end);
+        finalEntries.push({
+          stt: 0,
+          patientName: p.name,
+          doseNumber: idx + 1,
+          orderTime: dose.orderTime,
+          startTime: minutesToTime(dose.start),
+          endTime: minutesToTime(dose.end),
+          nurseName: nurseNames[bestNurse],
+          machineId: NURSE_MACHINE_MAP[bestNurse],
+          isOffHours: false, // Rule removed
+          notes: '',
+          rawMinutes: dose.start
+        });
       });
     }
   });
 
-  return finalSchedule
-    .sort((a, b) => a.patientName.localeCompare(b.patientName, 'vi'))
+  return finalEntries
+    .sort((a, b) => {
+      if (a.patientName !== b.patientName) {
+        return a.patientName.localeCompare(b.patientName, 'vi');
+      }
+      return a.doseNumber - b.doseNumber;
+    })
     .map((entry, idx) => ({ ...entry, stt: idx + 1 }));
 };

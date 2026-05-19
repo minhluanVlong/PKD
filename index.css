@@ -1,0 +1,211 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap');
+
+@theme {
+  --font-sans: 'Public Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+
+  /* Force HEX colors instead of oklch to satisfy html2canvas */
+  --color-slate-50: #f8fafc;
+  --color-slate-100: #f1f5f9;
+  --color-slate-200: #e2e8f0;
+  --color-slate-300: #cbd5e1;
+  --color-slate-400: #94a3b8;
+  --color-slate-500: #64748b;
+  --color-slate-600: #475569;
+  --color-slate-700: #334155;
+  --color-slate-800: #1e293b;
+  --color-slate-900: #0f172a;
+
+  --color-indigo-50: #eef2ff;
+  --color-indigo-100: #e0e7ff;
+  --color-indigo-200: #c7d2fe;
+  --color-indigo-300: #a5b4fc;
+  --color-indigo-400: #818cf8;
+  --color-indigo-500: #6366f1;
+  --color-indigo-600: #4f46e5;
+  --color-indigo-700: #4338ca;
+  --color-indigo-800: #3730a3;
+  --color-indigo-900: #312e81;
+
+  --color-emerald-50: #ecfdf5;
+  --color-emerald-500: #10b981;
+  --color-emerald-600: #059669;
+  --color-emerald-700: #047857;
+
+  --color-blue-50: #eff6ff;
+  --color-blue-600: #2563eb;
+  --color-blue-700: #1d4ed8;
+}
+
+body { 
+    font-family: var(--font-sans);
+    letter-spacing: -0.015em;
+}
+
+#print-header, #print-footer { display: none; }
+
+/* Tối ưu khi bấm IN của trình duyệt */
+@media print {
+    @page {
+        size: A4 portrait;
+        margin: 0mm;
+    }
+    body { background: white !important; padding: 0 !important; }
+    .no-print { display: none !important; }
+    #print-header { display: block !important; }
+    #print-footer { display: block !important; }
+    .pdf-container { border: none !important; border-radius: 0 !important; box-shadow: none !important; width: 100% !important; margin: 0 !important; padding: 0 !important; }
+    table { width: 100% !important; border: 0.5pt solid #000 !important; }
+    th, td { border: 0.5pt solid #000 !important; padding: 12px 8px !important; color: #000 !important; font-size: 13pt !important; }
+    th { background-color: #f8fafc !important; font-weight: 800 !important; }
+    .col-stt { width: 5% !important; }
+    .col-name { width: 25% !important; }
+    .col-dose { width: 5% !important; }
+    .col-order { width: 10% !important; }
+    .col-start { width: 10% !important; }
+    .col-end { width: 10% !important; }
+    .col-nurse { width: 15% !important; }
+    .col-machine { width: 10% !important; }
+    .col-notes { width: 10% !important; }
+    tr { page-break-inside: avoid; }
+}
+
+/* Chế độ xuất PDF qua html2canvas + jsPDF */
+.pdf-export-mode {
+    width: 1000px !important;
+    margin: 0 !important;
+    padding: 20px !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background-color: #ffffff !important;
+}
+
+.pdf-export-mode table {
+    border: 1.5pt solid #000000 !important;
+    border-collapse: collapse !important;
+    width: 100% !important;
+    background-color: #ffffff !important;
+}
+
+.pdf-export-mode th, .pdf-export-mode td {
+    border: 1.5pt solid #000000 !important;
+    color: #000000 !important;
+    padding: 16px 12px !important;
+    font-size: 14pt !important;
+    background-color: #ffffff !important;
+}
+
+.pdf-export-mode th {
+    background-color: #f1f5f9 !important;
+    font-weight: 900 !important;
+}
+
+.pdf-export-mode .bg-blue-50\/30 {
+    background-color: #eff6ff !important;
+}
+
+.pdf-export-mode .bg-emerald-50\/30 {
+    background-color: #ecfdf5 !important;
+}
+
+.pdf-export-mode .bg-orange-50 {
+    background-color: #fff7ed !important;
+}
+
+.pdf-export-mode .bg-red-50 {
+    background-color: #fef2f2 !important;
+}
+
+.pdf-export-mode .bg-indigo-50 {
+    background-color: #eef2ff !important;
+}
+
+.pdf-export-mode .text-indigo-600 {
+    color: #4f46e5 !important;
+}
+
+.pdf-export-mode .text-orange-600 {
+    color: #ea580c !important;
+}
+
+.pdf-export-mode .text-red-600 {
+    color: #dc2626 !important;
+}
+
+.pdf-export-mode .border-indigo-100 {
+    border-color: #e0e7ff !important;
+}
+
+.pdf-export-mode .border-orange-100 {
+    border-color: #ffedd5 !important;
+}
+
+.pdf-export-mode .border-red-100 {
+    border-color: #fee2e2 !important;
+}
+
+.pdf-export-mode .bg-slate-50\/30 {
+    background-color: #f8fafc !important;
+}
+
+.pdf-export-mode .bg-slate-50\/50 {
+    background-color: #f8fafc !important;
+}
+
+.pdf-export-mode .bg-slate-100 {
+    background-color: #f1f5f9 !important;
+}
+
+.pdf-export-mode .text-blue-700 {
+    color: #1d4ed8 !important;
+}
+
+.pdf-export-mode .text-emerald-700 {
+    color: #047857 !important;
+}
+
+.pdf-export-mode .text-slate-900 {
+    color: #0f172a !important;
+}
+
+.pdf-export-mode .text-slate-800 {
+    color: #1e293b !important;
+}
+
+.pdf-export-mode .text-slate-700 {
+    color: #334155 !important;
+}
+
+.pdf-export-mode .text-slate-600 {
+    color: #475569 !important;
+}
+
+.pdf-export-mode .text-slate-400 {
+    color: #94a3b8 !important;
+}
+
+.pdf-export-mode .text-slate-300 {
+    color: #cbd5e1 !important;
+}
+
+.pdf-export-mode .border-slate-50 {
+    border-color: #f8fafc !important;
+}
+
+.pdf-export-mode .border-slate-100 {
+    border-color: #f1f5f9 !important;
+}
+
+.pdf-export-mode .border-blue-100 {
+    border-color: #dbeafe !important;
+}
+
+.pdf-export-mode .border-emerald-100 {
+    border-color: #d1fae5 !important;
+}
+
+.pdf-export-mode .border-slate-200\/50 {
+    border-color: #e2e8f0 !important;
+}
